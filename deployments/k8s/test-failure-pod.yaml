@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: intentional-crash-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: faulty-code
+  template:
+    metadata:
+      labels:
+        app: faulty-code
+    spec:
+      containers:
+      - name: broken-executor
+        image: alpine:latest
+        command: ["sh", "-c", "echo 'Simulating error conditions...' && exit 1"]

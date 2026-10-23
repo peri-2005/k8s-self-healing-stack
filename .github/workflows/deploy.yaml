@@ -1,0 +1,28 @@
+name: Build Verification Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Go Environment
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.23'
+
+    - name: Verify Module Dependencies
+      run: go mod verify
+
+    - name: Run Code Compilations Test
+      run: env CGO_ENABLED=0 GOOS=linux go build -v -o healer cmd/healer/main.go
+
+    - name: Test Docker Container Image Assembly
+      run: docker build -t test-build/healer:local .
