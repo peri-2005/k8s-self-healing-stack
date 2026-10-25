@@ -1,0 +1,71 @@
+func handleWebDashboard(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.Query("SELECT id, timestamp, pod_name, action_taken, status FROM healing_logs ORDER BY timestamp DESC LIMIT 50")
+		if err != nil {
+			http.Error(w, "Failed to query telemetry logs", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		type LogRow struct {
+			ID        int
+			Timestamp string
+			PodName   string
+			Action    string
+			Status    string
+		}
+
+		var logs []LogRow
+		for rows.Next() {
+			var l LogRow
+			if err := rows.Scan(&l.ID, &l.Timestamp, &l.PodName, &l.Action, &l.Status); err == nil {
+				logs = append(logs, l)
+			}
+		}
+
+		// Standard clean inline visual structure styling
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>Auto-Healing Event Dashboard</title>
+			<style>
+				body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; background: #f5f7fa; color: #333; }
+				table { width: 100%%; border-collapse: collapse; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; }
+				th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eef2f5; }
+				th { background-color: #4f46e5; color: white; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; }
+				tr:hover { background-color: #f9fafb; }
+				.badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+				.success { background: #d1fae5; color: #065f46; }
+				h2 { color: #1e1b4b; margin-bottom: 20px; }
+			</style>
+		</head>
+		<body>
+			<h2>🛡️ System Remediation Engine: Auto-Healing Live Log Stream</h2>
+			<table>
+				<tr>
+					<th>ID</th>
+					<th>Timestamp</th>
+					<th>Affected Pod Target</th>
+					<th>Mitigation Action Executed</th>
+					<th>Execution Status</th>
+				</tr>`)
+
+		for _, logItem := range logs {
+			fmt.Fprintf(w, `
+				<tr>
+					<td>%d</td>
+					<td>%s</td>
+					<td><code>%s</code></td>
+					<td>%s</td>
+					<td><span class="badge success">%s</span></td>
+				</tr>`, logItem.ID, logItem.Timestamp, logItem.PodName, logItem.Action, logItem.Status)
+		}
+
+		fmt.Fprintf(w, `
+			</table>
+		</body>
+		</html>`)
+	}
+}
